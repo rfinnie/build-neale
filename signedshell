@@ -1,0 +1,88 @@
+#!/usr/bin/perl
+
+use warnings;
+use strict;
+
+use File::Temp qw/tempfile/;
+
+my($file, $fileout, $gpguser);
+
+$file = $ARGV[0];
+if(!$file) {
+  printf("Usage: %s <file> [fileout]\n", $0);
+  exit(1);
+}
+
+if($ARGV[1]) {
+  $fileout = $ARGV[1];
+} else {
+  $fileout = "$file.signed";
+}
+
+$gpguser = 'Finnix Archive Signing Key <keymaster@finnix.org>';
+$gpguser = $ENV{'GPGUSER'} if $ENV{'GPGUSER'};
+
+my $linenum = 0;
+my $out = "";
+my $shellline = "";
+my $kwsmode = 1; # Kill whitespace mode state
+open(FILE, $file) || die("Cannot open $file: $!\n");
+while(my $l = <FILE>) {
+  $linenum++;
+  if(($linenum == 1) && ($l =~ /^\s*\#\!\s*\//)) {
+    $shellline = $l;
+    next;
+  }
+  if($kwsmode) {
+    if($l =~ /^\s*[\r\n]+$/) {
+      next;
+    } else {
+      $kwsmode = 0;
+    }
+  }
+  $out .= $l;
+}
+close(FILE);
+
+if(!$shellline) {
+  $shellline = "#!/bin/sh\n";
+}
+
+my $randid = random_id();
+
+$out = "$randid\n\n$out\n: <<'$randid'\n";
+
+my($tmpfh, $tmpfn) = tempfile();
+print $tmpfh $out;
+close($tmpfh);
+system("gpg", "--clearsign", "--local-user", $gpguser, $tmpfn);
+unless(open(FILE, "$tmpfn.asc")) {
+  unlink($tmpfn);
+  die("Cannot open $tmpfn.asc: $!\n");
+}
+open(FILEOUT, "> $fileout") || die("Cannot open $fileout: $!\n");
+print FILEOUT <<"EOM";
+$shellline
+# This is a GPG-signed, executable script.
+
+: <<'$randid'
+EOM
+print FILEOUT while(<FILE>);
+close(FILE);
+print FILEOUT <<"EOM";
+$randid
+EOM
+close(FILEOUT);
+chmod(0755, $fileout);
+unlink($tmpfn, "$tmpfn.asc");
+
+
+sub random_id {
+  my $out;
+  my @letters = ("A".."Z");
+  for(my $i = 0; $i < 8; $i++) {
+    $out .= $letters[int(rand($#letters))];
+  }
+  return($out);
+}
+

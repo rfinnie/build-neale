@@ -1,0 +1,219 @@
+#!/bin/sh
+
+# build-neale
+# Copyright (C) 2012 Ryan Finnie
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+
+set -e
+
+notfound=""
+for i in wget debootstrap chroot ar tar perl mksquashfs md5sum awk find genisoimage uuidgen depmod cpio xz gzip sed sha512sum mktemp; do
+  which $i >/dev/null 2>/dev/null || notfound="${notfound}$i "
+done
+if [ -n "$notfound" ]; then
+  echo "The following required commands were not found: $notfound"
+  exit 1
+fi
+
+temp1="$(mktemp)"
+temp2="$(mktemp)"
+echo "test" >"$temp1"
+rm -f "$temp2"
+if ! mksquashfs "$temp1" "$temp2" -comp xz >/dev/null 2>/dev/null; then
+  rm -f "$temp1" "$temp2"
+  echo "mksquashfs must support XZ compression (4.2 or newer)"
+  exit 1
+fi
+rm -f "$temp1" "$temp2"
+
+[ -z "$NEALE_FINNIX_MIRROR" ] && NEALE_FINNIX_MIRROR="http://archive.finnix.org/finnix"
+if [ -z "$NEALE_FINNIX_RELEASE" ]; then
+  NEALE_FINNIX_RELEASE="$(wget -O - "$NEALE_FINNIX_MIRROR/dists/unstable/Release" | awk '/^Codename: / { print $2 }')"
+fi
+if [ -z "$NEALE_FINNIX_RELEASE" ]; then
+  echo "Cannot retrieve $NEALE_FINNIX_MIRROR/dists/unstable/Release to determine dev release."
+  exit 1
+fi
+
+[ -z "$NEALE_BASE" ] && NEALE_BASE="/finnix/neale"
+[ -z "$NEALE_COMPONENTS" ] && NEALE_COMPONENTS="$NEALE_BASE/dists/$NEALE_FINNIX_RELEASE/neale/components"
+[ -z "$NEALE_COMPONENTS_MIRROR" ] && NEALE_COMPONENTS_MIRROR="$NEALE_FINNIX_MIRROR/dists/$NEALE_FINNIX_RELEASE/neale/components"
+
+[ -z "$NEALE_INIT_NAMESERVER" ] && NEALE_INIT_NAMESERVER="8.8.8.8"
+[ -z "$NEALE_DEBIAN_MIRROR" ] && NEALE_DEBIAN_MIRROR="http://ftp.osuosl.org/debian"
+[ -z "$NEALE_DEBIAN_RELEASE" ] && NEALE_DEBIAN_RELEASE="testing"
+[ -z "$NEALE_FINNIX_INIT_MIRROR" ] && NEALE_FINNIX_INIT_MIRROR="$NEALE_FINNIX_MIRROR"
+[ -z "$NEALE_FINNIX_INIT_RELEASE" ] && NEALE_FINNIX_INIT_RELEASE="$NEALE_FINNIX_RELEASE"
+[ -z "$NEALE_DEBIAN_INIT_MIRROR" ] && NEALE_DEBIAN_INIT_MIRROR="$NEALE_DEBIAN_MIRROR"
+[ -z "$NEALE_DEBIAN_INIT_RELEASE" ] && NEALE_DEBIAN_INIT_RELEASE="$NEALE_DEBIAN_RELEASE"
+
+[ -z "$FINNIX_BASE" ] && FINNIX_BASE="$NEALE_BASE/build"
+[ -z "$FINNIX_MASTER" ] && FINNIX_MASTER="$FINNIX_BASE/master"
+[ -z "$FINNIX_SOURCE" ] && FINNIX_SOURCE="$FINNIX_BASE/source/FINNIX"
+[ -z "$FINNIX_INITRD" ] && FINNIX_INITRD="$FINNIX_BASE/initrd"
+[ -z "$FINNIX_STUFF" ] && FINNIX_STUFF="$FINNIX_BASE/stuff"
+
+[ -z "$NEALE_FCD_SOURCE" ] && NEALE_FCD_SOURCE="$FINNIX_STUFF/finnix-chroot-dev"
+
+# Get arch
+if [ -z "$FINNIX_DISTARCH" ]; then
+  ARCH="$(uname -m)"
+  case "$ARCH" in
+    ppc|ppc64) FINNIX_DISTARCH="ppc" ;;
+    x86_64|i?86) FINNIX_DISTARCH="x86" ;;
+    *)
+      echo "Unknown architecture $ARCH"
+      exit 1
+      ;;
+  esac
+fi
+case "$FINNIX_DISTARCH" in
+  x86)
+    [ -z "$FINNIX_ISO" ] && FINNIX_ISO="$NEALE_BASE/finnix-neale.iso"
+    [ -z "$NEALE_INIT_ARCH" ] && NEALE_INIT_ARCH="i386"
+    ;;
+  amd64)
+    [ -z "$FINNIX_ISO" ] && FINNIX_ISO="$NEALE_BASE/finnix-neale-amd64.iso"
+    [ -z "$NEALE_INIT_ARCH" ] && NEALE_INIT_ARCH="amd64"
+    ;;
+  ppc)
+    [ -z "$FINNIX_ISO" ] && FINNIX_ISO="$NEALE_BASE/finnix-neale-ppc.iso"
+    [ -z "$NEALE_INIT_ARCH" ] && NEALE_INIT_ARCH="powerpc"
+    ;;
+  *)
+    echo "Unknown distribution architecture $FINNIX_DISTARCH"
+    exit 1
+    ;;
+esac
+
+export FINNIX_BASE
+export FINNIX_MASTER
+export FINNIX_SOURCE
+export FINNIX_INITRD
+export FINNIX_STUFF
+export FINNIX_DISTARCH
+export FINNIX_ISO
+export VANITYHASH
+export GPGUSER
+
+# Functions
+extract_deb() {
+  DEB="$1"
+  DIR="$2"
+  if which dpkg-deb >/dev/null; then
+    dpkg-deb -x "$DEB" "$DIR"
+    return
+  fi
+  if ! [ -e "$DEB" ]; then
+    echo "Cannot find $DEB"
+    return 1
+  fi
+  DEBFULL="$(readlink -f "$(dirname "$DEB")")/$(basename "$DEB")"
+
+  mkdir -p "$DIR/extract_deb.working"
+  (
+    cd "$DIR/extract_deb.working"
+    ar x "$DEBFULL"
+    cd "$DIR"
+    if ! [ -e "extract_deb.working/data.tar.gz" ]; then
+      echo "Cannot find data.tar.gz"
+      return 1
+    fi
+    tar zxf "extract_deb.working/data.tar.gz"
+  )
+  rm -rf "$DIR/extract_deb.working"
+}
+
+export LANG=C
+
+rm -rf "$FINNIX_BASE"
+
+mkdir -p "$NEALE_COMPONENTS"
+mkdir -p "$FINNIX_MASTER"
+mkdir -p "$FINNIX_STUFF"
+mkdir -p "$FINNIX_INITRD"
+mkdir -p "$FINNIX_SOURCE"
+
+for c in initrd kernel master stuff; do
+  wget -P "$NEALE_COMPONENTS" -N "$NEALE_COMPONENTS_MIRROR/neale-${c}_$NEALE_INIT_ARCH.udeb"
+done
+
+extract_deb "$NEALE_COMPONENTS/neale-master_$NEALE_INIT_ARCH.udeb" "$FINNIX_MASTER"
+extract_deb "$NEALE_COMPONENTS/neale-initrd_$NEALE_INIT_ARCH.udeb" "$FINNIX_INITRD"
+extract_deb "$NEALE_COMPONENTS/neale-stuff_$NEALE_INIT_ARCH.udeb" "$FINNIX_STUFF"
+
+if [ -e "$FINNIX_INITRD/dev.tar" ]; then
+  tar -C "$FINNIX_INITRD" -xf "$FINNIX_INITRD/dev.tar"
+  rm -f "$FINNIX_INITRD/dev.tar"
+fi
+
+[ -n "$NEALE_ORDER_FILE" ] && cp "$NEALE_ORDER_FILE" "$FINNIX_STUFF/finnix.order"
+
+# Very minimal debootstrap
+debootstrap --arch="$NEALE_INIT_ARCH" --variant=minbase "$NEALE_DEBIAN_INIT_RELEASE" "$FINNIX_SOURCE" "$NEALE_DEBIAN_INIT_MIRROR"
+
+# Set default hostname and resolv
+echo "finnix" >"$FINNIX_SOURCE/etc/hostname"
+echo "nameserver $NEALE_INIT_NAMESERVER" >"$FINNIX_SOURCE/etc/resolv.conf"
+echo "deb $NEALE_DEBIAN_INIT_MIRROR $NEALE_DEBIAN_INIT_RELEASE main" >"$FINNIX_SOURCE/etc/apt/sources.list"
+echo "deb $NEALE_FINNIX_INIT_MIRROR $NEALE_FINNIX_INIT_RELEASE main" >>"$FINNIX_SOURCE/etc/apt/sources.list"
+
+# finnix-chroot-dev is a script that make sure /proc etc are mounted,
+# start-stop-daemon is nerfed, etc
+cp "$NEALE_FCD_SOURCE" "$FINNIX_SOURCE/tmp/finnix-chroot-dev"
+chmod 0755 "$FINNIX_SOURCE/tmp/finnix-chroot-dev"
+
+# Preseed debconf values
+DEBIAN_FRONTEND=noninteractive
+DEBCONF_NONINTERACTIVE_SEEN=true
+export DEBIAN_FRONTEND DEBCONF_NONINTERACTIVE_SEEN
+echo "ssmtp ssmtp/hostname string finnix" | chroot "$FINNIX_SOURCE" debconf-set-selections
+
+# Install base Finnix packages
+chroot "$FINNIX_SOURCE" /tmp/finnix-chroot-dev apt-get update
+chroot "$FINNIX_SOURCE" /tmp/finnix-chroot-dev apt-get --yes --no-install-recommends --allow-unauthenticated install finnix-base
+
+# A second update is needed for apt to see the new GPG keys
+chroot "$FINNIX_SOURCE" /tmp/finnix-chroot-dev apt-get update
+
+# Install standard Finnix packages
+chroot "$FINNIX_SOURCE" /tmp/finnix-chroot-dev apt-get --yes --no-install-recommends install finnix-standard
+
+# Put the real release info in place
+echo "# Nameservers provided by Google" >"$FINNIX_SOURCE/etc/resolv.conf"
+echo "# http://code.google.com/speed/public-dns/" >>"$FINNIX_SOURCE/etc/resolv.conf"
+echo "nameserver 8.8.4.4" >>"$FINNIX_SOURCE/etc/resolv.conf"
+echo "nameserver 8.8.8.8" >>"$FINNIX_SOURCE/etc/resolv.conf"
+echo "deb $NEALE_DEBIAN_MIRROR $NEALE_DEBIAN_RELEASE main" >"$FINNIX_SOURCE/etc/apt/sources.list"
+echo "deb $NEALE_FINNIX_MIRROR $NEALE_FINNIX_RELEASE main" >>"$FINNIX_SOURCE/etc/apt/sources.list"
+chroot "$FINNIX_SOURCE" /tmp/finnix-chroot-dev apt-get update
+
+# Clean up
+chroot "$FINNIX_SOURCE" /tmp/finnix-chroot-dev apt-get clean
+rm -f "$FINNIX_SOURCE"/var/lib/apt/lists/*_i18n_Index
+rm -f "$FINNIX_SOURCE"/var/lib/apt/lists/*_i18n_Translation-*
+for j in Packages InRelease; do for i in "$FINNIX_SOURCE"/var/lib/apt/lists/*_"$j"; do :>"$i"; touch -t 198103190000.00 "$i"; done; done
+chroot "$FINNIX_SOURCE" /tmp/finnix-chroot-dev apt-get check
+rm -f "$FINNIX_SOURCE/tmp/finnix-chroot-dev"
+
+# Extract kernel into source
+extract_deb "$NEALE_COMPONENTS/neale-kernel_$NEALE_INIT_ARCH.udeb" "$FINNIX_SOURCE"
+[ -e "$FINNIX_SOURCE/boot/linux" ] && mv "$FINNIX_SOURCE/boot/linux" "$FINNIX_MASTER/boot/$FINNIX_DISTARCH/linux"
+[ -e "$FINNIX_SOURCE/boot/linux64" ] && mv "$FINNIX_SOURCE/boot/linux64" "$FINNIX_MASTER/boot/$FINNIX_DISTARCH/linux64"
+
+# Run build stages
+"$FINNIX_SOURCE/usr/sbin/finnix-build-stage1"
+"$FINNIX_SOURCE/usr/sbin/finnix-build-stage2"
