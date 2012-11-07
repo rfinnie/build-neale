@@ -67,6 +67,7 @@ fi
 [ -z "$FINNIX_STUFF" ] && FINNIX_STUFF="$FINNIX_BASE/stuff"
 
 [ -z "$NEALE_FCD_SOURCE" ] && NEALE_FCD_SOURCE="$FINNIX_STUFF/finnix-chroot-dev"
+[ -z "$NEALE_DOWNLOAD_UDEBS" ] && NEALE_DOWNLOAD_UDEBS="yes"
 
 # Get arch
 if [ -z "$FINNIX_DISTARCH" ]; then
@@ -147,9 +148,11 @@ mkdir -p "$FINNIX_STUFF"
 mkdir -p "$FINNIX_INITRD"
 mkdir -p "$FINNIX_SOURCE"
 
-for c in initrd kernel master stuff; do
-  wget -P "$NEALE_COMPONENTS" -N "$NEALE_COMPONENTS_MIRROR/neale-${c}_$NEALE_INIT_ARCH.udeb"
-done
+if ! [ "$NEALE_DOWNLOAD_UDEBS" = "no" ]; then
+  for c in initrd kernel master stuff; do
+    wget -P "$NEALE_COMPONENTS" -N "$NEALE_COMPONENTS_MIRROR/neale-${c}_$NEALE_INIT_ARCH.udeb"
+  done
+fi
 
 extract_deb "$NEALE_COMPONENTS/neale-master_$NEALE_INIT_ARCH.udeb" "$FINNIX_MASTER"
 extract_deb "$NEALE_COMPONENTS/neale-initrd_$NEALE_INIT_ARCH.udeb" "$FINNIX_INITRD"
