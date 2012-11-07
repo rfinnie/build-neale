@@ -19,7 +19,6 @@ if($ARGV[1]) {
   $fileout = "$file.signed";
 }
 
-$gpguser = 'Finnix Archive Signing Key <keymaster@finnix.org>';
 $gpguser = $ENV{'GPGUSER'} if $ENV{'GPGUSER'};
 
 my $linenum = 0;
@@ -55,7 +54,11 @@ $out = "$randid\n\n$out\n: <<'$randid'\n";
 my($tmpfh, $tmpfn) = tempfile();
 print $tmpfh $out;
 close($tmpfh);
-system("gpg", "--clearsign", "--local-user", $gpguser, $tmpfn);
+if($gpguser) {
+  system("gpg", "--clearsign", "--local-user", $gpguser, $tmpfn);
+} else {
+  system("gpg", "--clearsign", $tmpfn);
+}
 unless(open(FILE, "$tmpfn.asc")) {
   unlink($tmpfn);
   die("Cannot open $tmpfn.asc: $!\n");
