@@ -129,11 +129,18 @@ extract_deb() {
     cd "$DIR/extract_deb.working"
     ar x "$DEBFULL"
     cd "$DIR"
-    if ! [ -e "extract_deb.working/data.tar.gz" ]; then
-      echo "Cannot find data.tar.gz"
+    if [ -e "extract_deb.working/data.tar.gz" ]; then
+      tar zxf "extract_deb.working/data.tar.gz"
+    elif [ -e "extract_deb.working/data.tar.bz2" ]; then
+      tar jxf "extract_deb.working/data.tar.bz2"
+    elif [ -e "extract_deb.working/data.tar.xz" ]; then
+      # Yes, there's "tar -J".  But that's somewhat recent, and
+      # if we're using this function, it may be an old system.
+      xz --decompress --stdout "extract_deb.working/data.tar.xz" | tar xf -
+    else
+      echo "Cannot find data.tar.{gz,bz2,xz}"
       return 1
     fi
-    tar zxf "extract_deb.working/data.tar.gz"
   )
   rm -rf "$DIR/extract_deb.working"
 }
