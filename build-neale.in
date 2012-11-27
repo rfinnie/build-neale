@@ -48,7 +48,7 @@ if [ -z "$NEALE_FINNIX_RELEASE" ]; then
   exit 1
 fi
 
-[ -z "$NEALE_BASE" ] && NEALE_BASE="/finnix/neale"
+[ -z "$NEALE_BASE" ] && NEALE_BASE="/srv/finnix/neale"
 [ -z "$NEALE_COMPONENTS" ] && NEALE_COMPONENTS="$NEALE_BASE/dists/$NEALE_FINNIX_RELEASE/neale/components"
 [ -z "$NEALE_COMPONENTS_MIRROR" ] && NEALE_COMPONENTS_MIRROR="$NEALE_FINNIX_MIRROR/dists/$NEALE_FINNIX_RELEASE/neale/components"
 
