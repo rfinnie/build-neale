@@ -69,6 +69,8 @@ fi
 [ -z "$NEALE_FCD_SOURCE" ] && NEALE_FCD_SOURCE="$FINNIX_STUFF/finnix-chroot-dev"
 [ -z "$NEALE_DOWNLOAD_UDEBS" ] && NEALE_DOWNLOAD_UDEBS="yes"
 
+[ -z "$NEALE_HOSTNAME" ] && NEALE_HOSTNAME="finnix"
+
 # Get arch
 if [ -z "$FINNIX_DISTARCH" ]; then
   ARCH="$(uname -m)"
@@ -176,7 +178,9 @@ fi
 debootstrap --arch="$NEALE_INIT_ARCH" --variant=minbase "$NEALE_DEBIAN_INIT_RELEASE" "$FINNIX_SOURCE" "$NEALE_DEBIAN_INIT_MIRROR"
 
 # Set default /etc files
-echo "finnix" >"$FINNIX_SOURCE/etc/hostname"
+echo "$NEALE_HOSTNAME" >"$FINNIX_SOURCE/etc/hostname"
+echo >>"$FINNIX_SOURCE/etc/hosts"
+echo "127.0.1.1	$NEALE_HOSTNAME" >>"$FINNIX_SOURCE/etc/hosts"
 echo "nameserver $NEALE_INIT_NAMESERVER" >"$FINNIX_SOURCE/etc/resolv.conf"
 echo "deb $NEALE_DEBIAN_INIT_MIRROR $NEALE_DEBIAN_INIT_RELEASE main" >"$FINNIX_SOURCE/etc/apt/sources.list"
 echo "deb $NEALE_FINNIX_INIT_MIRROR $NEALE_FINNIX_INIT_RELEASE main" >>"$FINNIX_SOURCE/etc/apt/sources.list"
@@ -193,7 +197,7 @@ chmod 0755 "$FINNIX_SOURCE/tmp/finnix-chroot-dev"
 DEBIAN_FRONTEND=noninteractive
 DEBCONF_NONINTERACTIVE_SEEN=true
 export DEBIAN_FRONTEND DEBCONF_NONINTERACTIVE_SEEN
-echo "ssmtp ssmtp/hostname string finnix" | chroot "$FINNIX_SOURCE" debconf-set-selections
+echo "ssmtp ssmtp/hostname string $NEALE_HOSTNAME" | chroot "$FINNIX_SOURCE" debconf-set-selections
 
 # Install base Finnix packages
 chroot "$FINNIX_SOURCE" /tmp/finnix-chroot-dev apt-get update
