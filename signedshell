@@ -19,7 +19,11 @@ if($ARGV[1]) {
   $fileout = "$file.signed";
 }
 
-$gpguser = $ENV{'GPGUSER'} if $ENV{'GPGUSER'};
+if($ENV{'GPGUSER'}) {
+  $gpguser = $ENV{'GPGUSER'};
+} elsif($ENV{'FINNIX_GPGUSER'}) {
+  $gpguser = $ENV{'FINNIX_GPGUSER'};
+}
 
 my $linenum = 0;
 my $out = "";

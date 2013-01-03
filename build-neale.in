@@ -109,8 +109,8 @@ export FINNIX_INITRD
 export FINNIX_STUFF
 export FINNIX_DISTARCH
 export FINNIX_ISO
-export VANITYHASH
-export GPGUSER
+export FINNIX_VANITYHASH
+export FINNIX_GPGUSER
 
 # Functions
 extract_deb() {
