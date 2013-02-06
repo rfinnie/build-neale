@@ -228,7 +228,9 @@ echo "# http://code.google.com/speed/public-dns/" >>"$FINNIX_SOURCE/etc/resolv.c
 echo "nameserver 8.8.4.4" >>"$FINNIX_SOURCE/etc/resolv.conf"
 echo "nameserver 8.8.8.8" >>"$FINNIX_SOURCE/etc/resolv.conf"
 echo "deb $NEALE_DEBIAN_MIRROR $NEALE_DEBIAN_RELEASE main" >"$FINNIX_SOURCE/etc/apt/sources.list"
+echo "#deb-src $NEALE_DEBIAN_MIRROR $NEALE_DEBIAN_RELEASE main" >>"$FINNIX_SOURCE/etc/apt/sources.list"
 echo "deb $NEALE_FINNIX_MIRROR $NEALE_FINNIX_RELEASE main" >>"$FINNIX_SOURCE/etc/apt/sources.list"
+echo "#deb-src $NEALE_FINNIX_MIRROR $NEALE_FINNIX_RELEASE main" >>"$FINNIX_SOURCE/etc/apt/sources.list"
 rm -f "$FINNIX_SOURCE/etc/apt/apt.conf.d/10neale"
 chroot "$FINNIX_SOURCE" /tmp/finnix-chroot-dev apt-get update
 
