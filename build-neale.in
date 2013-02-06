@@ -199,9 +199,18 @@ DEBCONF_NONINTERACTIVE_SEEN=true
 export DEBIAN_FRONTEND DEBCONF_NONINTERACTIVE_SEEN
 echo "ssmtp ssmtp/hostname string $NEALE_HOSTNAME" | chroot "$FINNIX_SOURCE" debconf-set-selections
 
+# These apt options are provided by finnix-scripts, but to save time and
+# space until finnix-scripts is installed, we will temporarily put them
+# in place here and remove them later in build-neale
+mkdir -p "$FINNIX_SOURCE/etc/apt/apt.conf.d"
+echo 'Acquire::PDiffs "false";' >"$FINNIX_SOURCE/etc/apt/apt.conf.d/10neale"
+echo 'Acquire::Languages "none";' >>"$FINNIX_SOURCE/etc/apt/apt.conf.d/10neale"
+echo 'APT::Install-Recommends "false";' >>"$FINNIX_SOURCE/etc/apt/apt.conf.d/10neale"
+echo 'APT::Architectures:: "";' >>"$FINNIX_SOURCE/etc/apt/apt.conf.d/10neale"
+
 # Install base Finnix packages
 chroot "$FINNIX_SOURCE" /tmp/finnix-chroot-dev apt-get update
-chroot "$FINNIX_SOURCE" /tmp/finnix-chroot-dev apt-get --yes --no-install-recommends --allow-unauthenticated install finnix-base
+chroot "$FINNIX_SOURCE" /tmp/finnix-chroot-dev apt-get --yes --allow-unauthenticated install finnix-base
 
 # Once netbase is installed, update /etc/hosts
 echo >>"$FINNIX_SOURCE/etc/hosts"
@@ -211,7 +220,7 @@ echo "127.0.1.1	$NEALE_HOSTNAME" >>"$FINNIX_SOURCE/etc/hosts"
 chroot "$FINNIX_SOURCE" /tmp/finnix-chroot-dev apt-get update
 
 # Install standard Finnix packages
-chroot "$FINNIX_SOURCE" /tmp/finnix-chroot-dev apt-get --yes --no-install-recommends install finnix-standard
+chroot "$FINNIX_SOURCE" /tmp/finnix-chroot-dev apt-get --yes install finnix-standard
 
 # Put the real release info in place
 echo "# Nameservers provided by Google" >"$FINNIX_SOURCE/etc/resolv.conf"
@@ -220,6 +229,7 @@ echo "nameserver 8.8.4.4" >>"$FINNIX_SOURCE/etc/resolv.conf"
 echo "nameserver 8.8.8.8" >>"$FINNIX_SOURCE/etc/resolv.conf"
 echo "deb $NEALE_DEBIAN_MIRROR $NEALE_DEBIAN_RELEASE main" >"$FINNIX_SOURCE/etc/apt/sources.list"
 echo "deb $NEALE_FINNIX_MIRROR $NEALE_FINNIX_RELEASE main" >>"$FINNIX_SOURCE/etc/apt/sources.list"
+rm -f "$FINNIX_SOURCE/etc/apt/apt.conf.d/10neale"
 chroot "$FINNIX_SOURCE" /tmp/finnix-chroot-dev apt-get update
 
 # Clean up
