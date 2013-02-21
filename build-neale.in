@@ -59,6 +59,10 @@ fi
 [ -z "$NEALE_FINNIX_INIT_RELEASE" ] && NEALE_FINNIX_INIT_RELEASE="$NEALE_FINNIX_RELEASE"
 [ -z "$NEALE_DEBIAN_INIT_MIRROR" ] && NEALE_DEBIAN_INIT_MIRROR="$NEALE_DEBIAN_MIRROR"
 [ -z "$NEALE_DEBIAN_INIT_RELEASE" ] && NEALE_DEBIAN_INIT_RELEASE="$NEALE_DEBIAN_RELEASE"
+[ -z "$NEALE_DEBIAN_SECTIONS" ] && NEALE_DEBIAN_SECTIONS="main"
+[ -z "$NEALE_DEBIAN_INIT_SECTIONS" ] && NEALE_DEBIAN_INIT_SECTIONS="$NEALE_DEBIAN_SECTIONS"
+[ -z "$NEALE_FINNIX_SECTIONS" ] && NEALE_FINNIX_SECTIONS="main"
+[ -z "$NEALE_FINNIX_INIT_SECTIONS" ] && NEALE_FINNIX_INIT_SECTIONS="$NEALE_FINNIX_SECTIONS"
 
 [ -z "$FINNIX_BASE" ] && FINNIX_BASE="$NEALE_BASE/build"
 [ -z "$FINNIX_MASTER" ] && FINNIX_MASTER="$FINNIX_BASE/master"
@@ -177,13 +181,19 @@ fi
 # Very minimal debootstrap
 debootstrap --arch="$NEALE_INIT_ARCH" --variant=minbase "$NEALE_DEBIAN_INIT_RELEASE" "$FINNIX_SOURCE" "$NEALE_DEBIAN_INIT_MIRROR"
 
+# Ubuntu-specific
+if [ -x "$FINNIX_SOURCE/sbin/start" ]; then
+  mv "$FINNIX_SOURCE/sbin/start" "$FINNIX_SOURCE/sbin/start.finnix-distrib"
+  ln -s ../bin/true "$FINNIX_SOURCE/sbin/start"
+fi
+
 # Set default /etc files
 echo "$NEALE_HOSTNAME" >"$FINNIX_SOURCE/etc/hostname"
 echo "nameserver $NEALE_INIT_NAMESERVER" >"$FINNIX_SOURCE/etc/resolv.conf"
-echo "deb $NEALE_DEBIAN_INIT_MIRROR $NEALE_DEBIAN_INIT_RELEASE main" >"$FINNIX_SOURCE/etc/apt/sources.list"
-echo "#deb-src $NEALE_DEBIAN_INIT_MIRROR $NEALE_DEBIAN_INIT_RELEASE main" >>"$FINNIX_SOURCE/etc/apt/sources.list"
-echo "deb $NEALE_FINNIX_INIT_MIRROR $NEALE_FINNIX_INIT_RELEASE main" >>"$FINNIX_SOURCE/etc/apt/sources.list"
-echo "#deb-src $NEALE_FINNIX_INIT_MIRROR $NEALE_FINNIX_INIT_RELEASE main" >>"$FINNIX_SOURCE/etc/apt/sources.list"
+echo "deb $NEALE_DEBIAN_INIT_MIRROR $NEALE_DEBIAN_INIT_RELEASE $NEALE_DEBIAN_INIT_SECTIONS" >"$FINNIX_SOURCE/etc/apt/sources.list"
+echo "#deb-src $NEALE_DEBIAN_INIT_MIRROR $NEALE_DEBIAN_INIT_RELEASE $NEALE_DEBIAN_INIT_SECTIONS" >>"$FINNIX_SOURCE/etc/apt/sources.list"
+echo "deb $NEALE_FINNIX_INIT_MIRROR $NEALE_FINNIX_INIT_RELEASE $NEALE_FINNIX_INIT_SECTIONS" >>"$FINNIX_SOURCE/etc/apt/sources.list"
+echo "#deb-src $NEALE_FINNIX_INIT_MIRROR $NEALE_FINNIX_INIT_RELEASE $NEALE_FINNIX_INIT_SECTIONS" >>"$FINNIX_SOURCE/etc/apt/sources.list"
 echo "# /etc/fstab: static file system information." >"$FINNIX_SOURCE/etc/fstab"
 echo "#" >>"$FINNIX_SOURCE/etc/fstab"
 echo "# Lines containing \"Added by Finnix\" are managed by rebuildfstab.">>"$FINNIX_SOURCE/etc/fstab"
@@ -227,12 +237,18 @@ echo "# Nameservers provided by Google" >"$FINNIX_SOURCE/etc/resolv.conf"
 echo "# http://code.google.com/speed/public-dns/" >>"$FINNIX_SOURCE/etc/resolv.conf"
 echo "nameserver 8.8.4.4" >>"$FINNIX_SOURCE/etc/resolv.conf"
 echo "nameserver 8.8.8.8" >>"$FINNIX_SOURCE/etc/resolv.conf"
-echo "deb $NEALE_DEBIAN_MIRROR $NEALE_DEBIAN_RELEASE main" >"$FINNIX_SOURCE/etc/apt/sources.list"
-echo "#deb-src $NEALE_DEBIAN_MIRROR $NEALE_DEBIAN_RELEASE main" >>"$FINNIX_SOURCE/etc/apt/sources.list"
-echo "deb $NEALE_FINNIX_MIRROR $NEALE_FINNIX_RELEASE main" >>"$FINNIX_SOURCE/etc/apt/sources.list"
-echo "#deb-src $NEALE_FINNIX_MIRROR $NEALE_FINNIX_RELEASE main" >>"$FINNIX_SOURCE/etc/apt/sources.list"
+echo "deb $NEALE_DEBIAN_MIRROR $NEALE_DEBIAN_RELEASE $NEALE_DEBIAN_SECTIONS" >"$FINNIX_SOURCE/etc/apt/sources.list"
+echo "#deb-src $NEALE_DEBIAN_MIRROR $NEALE_DEBIAN_RELEASE $NEALE_DEBIAN_SECTIONS" >>"$FINNIX_SOURCE/etc/apt/sources.list"
+echo "deb $NEALE_FINNIX_MIRROR $NEALE_FINNIX_RELEASE $NEALE_FINNIX_SECTIONS" >>"$FINNIX_SOURCE/etc/apt/sources.list"
+echo "#deb-src $NEALE_FINNIX_MIRROR $NEALE_FINNIX_RELEASE $NEALE_FINNIX_SECTIONS" >>"$FINNIX_SOURCE/etc/apt/sources.list"
 rm -f "$FINNIX_SOURCE/etc/apt/apt.conf.d/10neale"
 chroot "$FINNIX_SOURCE" /tmp/finnix-chroot-dev apt-get update
+
+# Ubuntu-specific
+if [ -x "$FINNIX_SOURCE/sbin/start.finnix-distrib" ]; then
+  rm -f "$FINNIX_SOURCE/sbin/start"
+  mv "$FINNIX_SOURCE/sbin/start.finnix-distrib" "$FINNIX_SOURCE/sbin/start"
+fi
 
 # Clean up
 chroot "$FINNIX_SOURCE" /tmp/finnix-chroot-dev apt-get clean
@@ -241,6 +257,8 @@ rm -f "$FINNIX_SOURCE"/var/lib/apt/lists/*_i18n_Translation-*
 for j in Packages InRelease; do for i in "$FINNIX_SOURCE"/var/lib/apt/lists/*_"$j"; do :>"$i"; touch -t 198103190000.00 "$i"; done; done
 chroot "$FINNIX_SOURCE" /tmp/finnix-chroot-dev apt-get check
 rm -f "$FINNIX_SOURCE/tmp/finnix-chroot-dev"
+find "$FINNIX_SOURCE/etc" -name '*.dpkg-dist' -delete
+find "$FINNIX_SOURCE/etc" -name '*.dpkg-new' -delete
 
 # Extract kernel into source
 extract_deb "$NEALE_COMPONENTS/neale-kernel_$NEALE_INIT_ARCH.udeb" "$FINNIX_SOURCE"
