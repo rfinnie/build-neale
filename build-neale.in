@@ -51,6 +51,12 @@ fi
 [ -z "$NEALE_BASE" ] && NEALE_BASE="/srv/finnix/neale"
 [ -z "$NEALE_COMPONENTS" ] && NEALE_COMPONENTS="$NEALE_BASE/dists/$NEALE_FINNIX_RELEASE/neale/components"
 [ -z "$NEALE_COMPONENTS_MIRROR" ] && NEALE_COMPONENTS_MIRROR="$NEALE_FINNIX_MIRROR/dists/$NEALE_FINNIX_RELEASE/neale/components"
+[ -z "$NEALE_BUILD_TYPE" ] && NEALE_BUILD_TYPE="standard"
+if [ "$NEALE_BUILD_TYPE" = "minimal" ]; then
+  NEALE_BUILD_TYPE_PKG="finnix-minimal"
+else
+  NEALE_BUILD_TYPE_PKG="finnix-standard"
+fi
 
 [ -z "$NEALE_INIT_NAMESERVER" ] && NEALE_INIT_NAMESERVER="8.8.8.8"
 [ -z "$NEALE_DEBIAN_MIRROR" ] && NEALE_DEBIAN_MIRROR="http://cdn.debian.net/debian"
@@ -230,7 +236,7 @@ echo "127.0.1.1	$NEALE_HOSTNAME" >>"$FINNIX_SOURCE/etc/hosts"
 chroot "$FINNIX_SOURCE" /tmp/finnix-chroot-dev apt-get update
 
 # Install standard Finnix packages
-chroot "$FINNIX_SOURCE" /tmp/finnix-chroot-dev apt-get --yes install finnix-standard
+chroot "$FINNIX_SOURCE" /tmp/finnix-chroot-dev apt-get --yes install "$NEALE_BUILD_TYPE_PKG"
 
 # Put the real release info in place
 echo "# Nameservers provided by Google" >"$FINNIX_SOURCE/etc/resolv.conf"
