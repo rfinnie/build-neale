@@ -86,6 +86,7 @@ if [ -z "$FINNIX_DISTARCH" ]; then
   ARCH="$(uname -m)"
   case "$ARCH" in
     ppc|ppc64) FINNIX_DISTARCH="ppc" ;;
+    armv7l) FINNIX_DISTARCH="armhf" ;;
     x86_64|i?86) FINNIX_DISTARCH="x86" ;;
     *)
       echo "Unknown architecture $ARCH"
@@ -105,6 +106,10 @@ case "$FINNIX_DISTARCH" in
   ppc)
     [ -z "$FINNIX_ISO" ] && FINNIX_ISO="$NEALE_BASE/finnix-neale-ppc.iso"
     [ -z "$NEALE_INIT_ARCH" ] && NEALE_INIT_ARCH="powerpc"
+    ;;
+  armhf)
+    [ -z "$FINNIX_ISO" ] && FINNIX_ISO="$NEALE_BASE/finnix-neale-armhf.iso"
+    [ -z "$NEALE_INIT_ARCH" ] && NEALE_INIT_ARCH="armhf"
     ;;
   *)
     echo "Unknown distribution architecture $FINNIX_DISTARCH"
