@@ -50,7 +50,7 @@ fi
 
 [ -z "$NEALE_BASE" ] && NEALE_BASE="/srv/finnix/neale"
 [ -z "$NEALE_COMPONENTS" ] && NEALE_COMPONENTS="$NEALE_BASE/dists/$NEALE_FINNIX_RELEASE/neale/components"
-[ -z "$NEALE_COMPONENTS_MIRROR" ] && NEALE_COMPONENTS_MIRROR="$NEALE_FINNIX_MIRROR/dists/$NEALE_FINNIX_RELEASE/neale/components"
+[ -z "$NEALE_COMPONENTS_MIRROR" ] && NEALE_COMPONENTS_MIRROR="$NEALE_FINNIX_INIT_MIRROR/dists/$NEALE_FINNIX_RELEASE/neale/components"
 [ -z "$NEALE_BUILD_TYPE" ] && NEALE_BUILD_TYPE="standard"
 if [ "$NEALE_BUILD_TYPE" = "minimal" ]; then
   NEALE_BUILD_TYPE_PKG="finnix-minimal"
