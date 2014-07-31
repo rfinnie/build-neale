@@ -229,9 +229,6 @@ echo 'Acquire::Languages "none";' >>"$FINNIX_SOURCE/etc/apt/apt.conf.d/10neale"
 echo 'APT::Install-Recommends "false";' >>"$FINNIX_SOURCE/etc/apt/apt.conf.d/10neale"
 echo 'APT::Architectures:: "";' >>"$FINNIX_SOURCE/etc/apt/apt.conf.d/10neale"
 
-# Workaround for LP: #1299536
-echo 'Acquire::CompressionTypes::Order:: "gz";' >>"$FINNIX_SOURCE/etc/apt/apt.conf.d/10aptworkaround"
-
 # Install base Finnix packages
 chroot "$FINNIX_SOURCE" /tmp/finnix-chroot-dev apt-get update
 chroot "$FINNIX_SOURCE" /tmp/finnix-chroot-dev apt-get --yes --allow-unauthenticated install finnix-base
