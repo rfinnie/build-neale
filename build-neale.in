@@ -126,6 +126,7 @@ export FINNIX_DISTARCH
 export FINNIX_ISO
 export FINNIX_VANITYHASH
 export FINNIX_GPGUSER
+export FINNIX_BUILD_TAG
 
 # Functions
 extract_deb() {
