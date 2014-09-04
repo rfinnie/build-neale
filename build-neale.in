@@ -232,6 +232,8 @@ echo 'APT::Architectures:: "";' >>"$FINNIX_SOURCE/etc/apt/apt.conf.d/10neale"
 
 # Install base Finnix packages
 chroot "$FINNIX_SOURCE" /tmp/finnix-chroot-dev apt-get update
+chroot "$FINNIX_SOURCE" /tmp/finnix-chroot-dev apt-get --yes --allow-unauthenticated --purge install sysvinit-core
+chroot "$FINNIX_SOURCE" /tmp/finnix-chroot-dev apt-get --yes --allow-unauthenticated --purge --auto-remove remove systemd libsystemd-journal0 libsystemd-daemon0 libsystemd-login0 || true
 chroot "$FINNIX_SOURCE" /tmp/finnix-chroot-dev apt-get --yes --allow-unauthenticated install finnix-base
 
 # Once netbase is installed, update /etc/hosts
