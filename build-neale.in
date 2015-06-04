@@ -174,9 +174,19 @@ mkdir -p "$FINNIX_INITRD"
 mkdir -p "$FINNIX_SOURCE"
 
 if ! [ "$NEALE_DOWNLOAD_UDEBS" = "no" ]; then
-  for c in initrd kernel master stuff; do
-    wget -P "$NEALE_COMPONENTS" -N "$NEALE_COMPONENTS_MIRROR/neale-${c}_$NEALE_INIT_ARCH.udeb"
-  done
+  while read cpkg carch cfn; do
+    [ "$carch" = "$NEALE_INIT_ARCH" ] || continue
+    case "$cpkg" in
+      neale-initrd|neale-kernel|neale-master|neale-stuff)
+        wget -O "$NEALE_COMPONENTS/${cpkg}_${carch}.udeb" "$NEALE_FINNIX_MIRROR/$cfn"
+        ;;
+      *)
+        continue
+        ;;
+    esac
+  done <<EOM
+$(wget -O - "$NEALE_FINNIX_MIRROR/dists/$NEALE_FINNIX_RELEASE/neale/components.index")
+EOM
 fi
 
 extract_deb "$NEALE_COMPONENTS/neale-master_$NEALE_INIT_ARCH.udeb" "$FINNIX_MASTER"
