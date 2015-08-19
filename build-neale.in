@@ -27,6 +27,29 @@ if [ -n "$notfound" ]; then
   echo "The following required commands were not found: $notfound"
   exit 1
 fi
+if which curl >/dev/null 2>/dev/null; then
+  has_curl=1
+else
+  has_curl=0
+fi
+
+http_download() {
+  src="$1"
+  dst="$2"
+  if [ "$has_curl" = "1" ]; then
+    if [ -n "$dst" ]; then
+      curl -o "$dst" "$src"
+    else
+      curl "$src"
+    fi
+  else
+    if [ -n "$dst" ]; then
+      wget -O "$dst" "$src"
+    else
+      wget -O - "$src"
+    fi
+  fi
+}
 
 temp1="$(mktemp)"
 temp2="$(mktemp)"
@@ -41,7 +64,7 @@ rm -f "$temp1" "$temp2"
 
 [ -z "$NEALE_FINNIX_MIRROR" ] && NEALE_FINNIX_MIRROR="http://archive.finnix.org/finnix"
 if [ -z "$NEALE_FINNIX_RELEASE" ]; then
-  NEALE_FINNIX_RELEASE="$(wget -O - "$NEALE_FINNIX_MIRROR/dists/unstable/Release" | awk '/^Codename: / { print $2 }')"
+  NEALE_FINNIX_RELEASE="$(http_download "$NEALE_FINNIX_MIRROR/dists/unstable/Release" | awk '/^Codename: / { print $2 }')"
 fi
 if [ -z "$NEALE_FINNIX_RELEASE" ]; then
   echo "Cannot retrieve $NEALE_FINNIX_MIRROR/dists/unstable/Release to determine dev release."
@@ -178,14 +201,14 @@ if ! [ "$NEALE_DOWNLOAD_UDEBS" = "no" ]; then
     [ "$carch" = "$NEALE_INIT_ARCH" ] || continue
     case "$cpkg" in
       neale-initrd|neale-kernel|neale-master|neale-stuff)
-        wget -O "$NEALE_COMPONENTS/${cpkg}_${carch}.udeb" "$NEALE_FINNIX_MIRROR/$cfn"
+        http_download "$NEALE_FINNIX_MIRROR/$cfn" "$NEALE_COMPONENTS/${cpkg}_${carch}.udeb"
         ;;
       *)
         continue
         ;;
     esac
   done <<EOM
-$(wget -O - "$NEALE_FINNIX_MIRROR/dists/$NEALE_FINNIX_RELEASE/neale/components.index")
+$(http_download "$NEALE_FINNIX_MIRROR/dists/$NEALE_FINNIX_RELEASE/neale/components.index")
 EOM
 fi
 
