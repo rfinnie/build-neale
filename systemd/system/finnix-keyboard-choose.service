@@ -1,0 +1,19 @@
+[Unit]
+Description=Keyboard chooser
+Before=getty@tty1.service
+Before=console-getty.service
+Before=getty-static.service
+After=local-fs.target
+ConditionKernelCommandLine=0
+
+[Install]
+WantedBy=multi-user.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/sbin/finnix-keyboard-choose
+RemainAfterExit=true
+StandardInput=tty-force
+StandardOutput=inherit
+StandardError=inherit
+TimeoutSec=300

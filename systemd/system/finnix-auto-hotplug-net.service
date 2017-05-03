@@ -1,0 +1,13 @@
+[Unit]
+Description=Automatically bring up network interfaces
+After=networking.service
+
+[Install]
+WantedBy=multi-user.target
+WantedBy=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/lib/finnix/finnix-systemd-auto-hotplug-net
+RemainAfterExit=true
+

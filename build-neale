@@ -1,0 +1,11 @@
+#!/bin/sh
+
+export FINNIX_DISTARCH=amd64
+
+if [ "$(hostname)" = "humorbot" ]; then
+    export NEALE_DEBIAN_INIT_MIRROR="http://10.9.8.1/deb-proxy/debian"
+    export NEALE_FINNIX_INIT_MIRROR="http://10.9.8.1/deb-proxy/finnix"
+fi
+
+scriptdir="$(readlink -e "$(dirname "$0")")"
+exec "$scriptdir/build-neale.in" "$@"

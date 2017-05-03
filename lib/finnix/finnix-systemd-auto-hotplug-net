@@ -1,0 +1,12 @@
+#!/bin/sh
+
+/sbin/udevadm settle
+mkdir -p /etc/network/interfaces.d
+for interface in $(cd /sys/class/net; ls -1); do
+  [ "$interface" = "lo" ] && continue
+  if [ ! -e "/etc/network/interfaces.d/auto-hotplug-${interface}" ]; then
+    echo "allow-hotplug ${interface}" > /etc/network/interfaces.d/auto-hotplug-${interface}
+    echo "iface ${interface} inet dhcp" >> /etc/network/interfaces.d/auto-hotplug-${interface}
+  fi
+  /bin/systemctl --no-block start ifup@${interface}.service
+done

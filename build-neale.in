@@ -19,6 +19,7 @@
 
 set -e
 
+scriptdir="$(readlink -e "$(dirname "$0")")"
 notfound=""
 for i in wget debootstrap chroot ar tar perl mksquashfs md5sum awk find genisoimage uuidgen depmod cpio xz gzip sed sha512sum mktemp; do
   which $i >/dev/null 2>/dev/null || notfound="${notfound}$i "
@@ -239,9 +240,13 @@ echo "deb $NEALE_DEBIAN_INIT_MIRROR $NEALE_DEBIAN_INIT_RELEASE $NEALE_DEBIAN_INI
 echo "#deb-src $NEALE_DEBIAN_INIT_MIRROR $NEALE_DEBIAN_INIT_RELEASE $NEALE_DEBIAN_INIT_SECTIONS" >>"$FINNIX_SOURCE/etc/apt/sources.list"
 echo "deb $NEALE_FINNIX_INIT_MIRROR $NEALE_FINNIX_INIT_RELEASE $NEALE_FINNIX_INIT_SECTIONS" >>"$FINNIX_SOURCE/etc/apt/sources.list"
 echo "#deb-src $NEALE_FINNIX_INIT_MIRROR $NEALE_FINNIX_INIT_RELEASE $NEALE_FINNIX_INIT_SECTIONS" >>"$FINNIX_SOURCE/etc/apt/sources.list"
+
 echo "# /etc/fstab: static file system information." >"$FINNIX_SOURCE/etc/fstab"
 echo "#" >>"$FINNIX_SOURCE/etc/fstab"
 echo "# Lines containing \"Added by Finnix\" are managed by rebuildfstab.">>"$FINNIX_SOURCE/etc/fstab"
+echo "unionfs / overlay errors=remount-ro 0 1">>"$FINNIX_SOURCE/etc/fstab"
+
+rm -f "$FINNIX_SOURCE/etc/motd"
 
 # finnix-chroot-dev is a script that make sure /proc etc are mounted,
 # start-stop-daemon is nerfed, etc
@@ -265,9 +270,7 @@ echo 'APT::Architectures:: "";' >>"$FINNIX_SOURCE/etc/apt/apt.conf.d/10neale"
 
 # Install base Finnix packages
 chroot "$FINNIX_SOURCE" /tmp/finnix-chroot-dev apt-get update
-chroot "$FINNIX_SOURCE" /tmp/finnix-chroot-dev apt-get --yes --allow-unauthenticated --purge install sysvinit-core
-chroot "$FINNIX_SOURCE" /tmp/finnix-chroot-dev apt-get --yes --allow-unauthenticated --purge --auto-remove remove systemd libsystemd-journal0 libsystemd-daemon0 libsystemd-login0 || true
-chroot "$FINNIX_SOURCE" /tmp/finnix-chroot-dev apt-get --yes --allow-unauthenticated install finnix-base
+chroot "$FINNIX_SOURCE" /tmp/finnix-chroot-dev apt-get --yes --allow-unauthenticated --purge install finnix-base systemd-sysv
 
 # Once netbase is installed, update /etc/hosts
 echo >>"$FINNIX_SOURCE/etc/hosts"
@@ -278,6 +281,34 @@ chroot "$FINNIX_SOURCE" /tmp/finnix-chroot-dev apt-get update
 
 # Install standard Finnix packages
 chroot "$FINNIX_SOURCE" /tmp/finnix-chroot-dev apt-get --yes install "$NEALE_BUILD_TYPE_PKG"
+
+# Install a kernel (amd64 harcode warning)
+chroot "$FINNIX_SOURCE" /tmp/finnix-chroot-dev apt-get --yes install initramfs-tools
+chmod a-x "$FINNIX_SOURCE/etc/kernel/postinst.d/initramfs-tools"
+chroot "$FINNIX_SOURCE" /tmp/finnix-chroot-dev apt-get --yes install linux-image-amd64
+
+# Set passwords
+#echo "root:finnix" | chroot "$FINNIX_SOURCE" chpasswd
+#echo "finnix:finnix" | chroot "$FINNIX_SOURCE" chpasswd
+
+# Copy systemd files into place
+mkdir -p "$FINNIX_SOURCE/lib/systemd/system/getty@.service.d"
+cp "$scriptdir/systemd/system/getty@.service.d/finnix.conf" "$FINNIX_SOURCE/lib/systemd/system/getty@.service.d/finnix.conf"
+cp "$scriptdir/systemd/system/finnix-auto-hotplug-net.service" "$FINNIX_SOURCE/lib/systemd/system/finnix-auto-hotplug-net.service"
+cp "$scriptdir/systemd/system/finnix-keyboard-choose.service" "$FINNIX_SOURCE/lib/systemd/system/finnix-keyboard-choose.service"
+cp "$scriptdir/lib/finnix/finnix-systemd-auto-hotplug-net" "$FINNIX_SOURCE/lib/finnix/finnix-systemd-auto-hotplug-net"
+chmod 0755 "$FINNIX_SOURCE/lib/finnix/finnix-systemd-auto-hotplug-net"
+(cd "$FINNIX_SOURCE/etc/rc2.d"; for i in S??*; do chroot "$FINNIX_SOURCE" /lib/systemd/systemd-sysv-install disable $(echo "$i" | awk '{ string=substr($0, 4); print string; }'); done)
+rm -rf "$FINNIX_SOURCE/etc/systemd/system/sshd.service" "$FINNIX_SOURCE/etc/systemd/system/"*.target.wants
+chroot "$FINNIX_SOURCE" systemctl enable networking.service
+chroot "$FINNIX_SOURCE" systemctl enable getty@tty1.service
+chroot "$FINNIX_SOURCE" systemctl enable gpm.service
+chroot "$FINNIX_SOURCE" systemctl enable finnix-auto-hotplug-net.service
+chroot "$FINNIX_SOURCE" systemctl enable finnix-keyboard-choose.service
+
+# finnix-scripts currently diverts /sbin and puts a symlink to runit-init in its place.
+# Revert that.
+ln -sf /lib/systemd/systemd "$FINNIX_SOURCE/sbin/init"
 
 # Put the real release info in place
 echo "# Nameservers provided by Google" >"$FINNIX_SOURCE/etc/resolv.conf"
@@ -309,9 +340,10 @@ find "$FINNIX_SOURCE/etc" -name '*.dpkg-dist' -delete
 find "$FINNIX_SOURCE/etc" -name '*.dpkg-new' -delete
 
 # Extract kernel into source
-extract_deb "$NEALE_COMPONENTS/neale-kernel_$NEALE_INIT_ARCH.udeb" "$FINNIX_SOURCE"
-[ -e "$FINNIX_SOURCE/boot/linux" ] && mv "$FINNIX_SOURCE/boot/linux" "$FINNIX_MASTER/boot/$FINNIX_DISTARCH/linux"
-[ -e "$FINNIX_SOURCE/boot/linux64" ] && mv "$FINNIX_SOURCE/boot/linux64" "$FINNIX_MASTER/boot/$FINNIX_DISTARCH/linux64"
+#extract_deb "$NEALE_COMPONENTS/neale-kernel_$NEALE_INIT_ARCH.udeb" "$FINNIX_SOURCE"
+#[ -e "$FINNIX_SOURCE/boot/linux" ] && mv "$FINNIX_SOURCE/boot/linux" "$FINNIX_MASTER/boot/$FINNIX_DISTARCH/linux"
+#[ -e "$FINNIX_SOURCE/boot/linux64" ] && mv "$FINNIX_SOURCE/boot/linux64" "$FINNIX_MASTER/boot/$FINNIX_DISTARCH/linux64"
+mv "$FINNIX_SOURCE/boot/vmlinuz"* "$FINNIX_MASTER/boot/$FINNIX_DISTARCH/linux"
 
 # Run build stages
 "$FINNIX_SOURCE/usr/sbin/finnix-build-stage1"
